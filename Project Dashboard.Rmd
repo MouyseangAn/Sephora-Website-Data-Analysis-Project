@@ -1,0 +1,372 @@
+---
+title: "Sephora Website Data Analysis Project"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
+    source_code: embed
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(GGally)
+library(caret) 
+library(broom) 
+```
+
+```{r load_data}
+df <- read_csv("Updated Sephora_website_dataset.csv")
+
+```
+
+Introduction {data-orientation=rows}
+=======================================================================
+
+Row {data-height=250}
+-----------------------------------------------------------------------
+
+### Overview 
+
+For this project, we will follow the DCOVAC process. The process is listed below:
+
+DCOVAC – THE DATA MODELING FRAMEWORK
+
+* DEFINE the Problem
+* COLLECT the Data from Appropriate Sources
+* ORGANIZE the Data Collected
+* VISUALIZE the Data by Developing Charts
+* ANALYZE the data with Appropriate Statistical Methods
+* CONCLUSION
+
+Row {data-height=650}
+-----------------------------------------------------------------------
+
+### The Problem & Data Collection
+
+#### The Problem
+The beauty industry is very competitive with these huge beauty retailer such Macy, Nordstrom and Sephora. However, Sephora need to focus more on the customer feedback of the brands in order to analyze the current trend in consumer purchase behaviour regarding the price of the product in Sephora. This sephora data are from 2020 that we will used for our analysis. Our objective is to determine which predictors impact the on the price of the products.
+
+#### The Data
+This dataset has 6108 rows and 11 variables.There are 6 categorical variables and 5 continious variables. 
+
+#### Data Sources
+Alharbi, Raghad. (2020).Sephora website. Kaggle. https://www.kaggle.com/datasets/raghadalharbi/all-products-available-on-sephora-website/data
+
+### The Data
+VARIABLES TO PREDICT WITH: 
+
+* *SIZE*: if the product has a size or not
+* *RATING*: The rating of the product 
+* *NUMBER_OF_REVIEW*: The number of reviews of the product 
+* *ONLINE_ONLY*: If the product is sold online only
+* *EXCLUSIVE*: If the product is sold exclusively on Sephora's website 
+* *LIMITED_TIMES_OFFER*: If the product has a limited time offer
+* *LIMITED_EDITION*: If the product is limited edition
+* *LOVE*: The number of people loving the product
+* *VALUE_PRICE*: The value price of the product (for discounted products)
+
+VARIABLES WE WANT TO PREDICT:
+
+* *PRICE*:The price of the product
+* *CAT.PRICE*: Price > 50 is 1, lower is 0 
+
+Data
+=======================================================================
+Column {data-width=250}
+-----------------------------------------------------------------------
+### Organize the Data
+
+
+```{r, cache=TRUE}
+colnames(df) <- make.names(colnames(df))
+summary(df)
+```
+
+The summary statistics table show that variables like RATING and PRICE have a broad range of values, indicating variety in product ratings and pricing. NUMBER_OF_REVIEW shows a significant difference between mean and median results, indicating a skewed distribution most likely caused by a few products with high review counts. Based on the quartile and maximum values of LIMITED_EDITION and EXCLUSIVE, there is a limited amount of variation in these categories.
+
+Column {data-width=250}
+-----------------------------------------------------------------------
+### Transform Variables
+The LIMITED_EDITION, SIZE, ONLINE_ONLY, EXCLUSIVE, LIMITED_TIMES_OFFER, CAT.PRICE columns has 1 and 0.we will convert the categorical variables to be factors. This will be easier to compare and analyze between two and more groups.
+
+```{r, cache=TRUE}
+df <- mutate(df,LIMITED_EDITION=as.factor(LIMITED_EDITION),
+             SIZE =as.factor(SIZE),
+             ONLINE_ONLY = as.factor(ONLINE_ONLY),
+             EXCLUSIVE = as.factor(EXCLUSIVE),
+             LIMITED_TIMES_OFFER=as.factor(LIMITED_TIMES_OFFER),
+             CAT.PRICE =as.factor(CAT.PRICE))
+```
+
+#### LIMITED_EDITION
+```{r, cache=TRUE}
+as_tibble (select(df,LIMITED_EDITION) %>%
+  table())
+```
+
+#### CAT.PRICE (high or low price)
+![](CAT.PRICE.png)
+
+Data Viz #1
+=======================================================================
+Column {data-width=700}
+-----------------------------------------------------------------------
+### Response Variables
+#### CAT.PRICE above 50 (1)/below (0)
+```{r, cache=TRUE}
+as_tibble(select(df,CAT.PRICE) %>%
+         table()) %>% 
+  ggplot(aes(y=n,x= CAT.PRICE)) + geom_bar(stat="identity")
+```
+
+
+According to the graph above, we can see that we have the price less than 50 coded as (0) more than the price greater than 50. Based on the facet graph, we can see that the predictors related to the CAT.PRICE are NUMBER_OF_REVIEW and LOVE variables. However, they both are strong negative correlation that is statically significant.And the VALUE_PRICE are the strong positive correlation to CAT.PRICE since its value are almost the same as price.
+
+
+
+Column {data-width=700}
+-----------------------------------------------------------------------
+
+### Transform Variables
+
+```{r, cache=TRUE}
+ggpairs(select(df,CAT.PRICE,SIZE,RATING,NUMBER_OF_REVIEW,LOVE,VALUE_PRICE))
+```
+
+
+Data Viz #2
+=======================================================================
+Column {data-width=700}
+-----------------------------------------------------------------------
+### Response Variables
+
+#### PRICE
+```{r, cache=TRUE}
+ggplot(df, aes(x = PRICE)) +
+  geom_density(fill = "darkgrey", alpha = 0.5) +
+  labs(title = "Density Plot of Prices", x = "Price", y = "Density")+
+  scale_x_continuous(breaks = c(0, 50, 100, 200,300,400,500))
+```
+
+
+According to the graph, we can see that most price are mostly around in between the value of $0- $50. Based on the facet graph, we can see the potential predictors related to PRICE are the CAT.PRICE. Most than that, their correlation related to PRICE are significant weak but SIZE,NUMBER_OF_REVIEW and LOVE are statistically significant. 
+
+
+
+Column {data-width=700}
+-----------------------------------------------------------------------
+
+### Transform Variables
+
+```{r, cache=TRUE}
+ggpairs(select(df,PRICE,CAT.PRICE,SIZE,RATING,NUMBER_OF_REVIEW,LOVE,LIMITED_EDITION))
+```
+
+Data Viz #3
+=======================================================================
+Column {data-width=700}
+-----------------------------------------------------------------------
+### Response Variables
+
+#### PRICE
+```{r, cache=TRUE}
+ggplot(df, aes(x = PRICE, y = LOVE)) +
+  geom_point(alpha = 0.6, color = "blue", size = 2) +  
+  geom_smooth(method = "lm", color = "red", se = FALSE) + 
+  labs(title = "Impact of Price on Love for the Product",
+       x = "Price", y = "Love") +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "gray20"))
+```
+
+
+We want to determine whether the price of a product impacts how much people love it. As observed in the graph, as the price increases, the number of people who love the product decreases. This indicates that customers at Sephora mostly purchase products within the price range of $0 to $100. However, none of the variables strongly correlate with PRICE, as shown by the facet graph analysis. Despite this, NUMBER_OF_REVIEW and LOVE show a weak negative correlation with PRICE, but they are both statistically significant.
+
+
+
+
+
+Column {data-width=700}
+-----------------------------------------------------------------------
+
+### Transform Variables
+
+```{r, cache=TRUE}
+ggpairs(select(df,PRICE,RATING,NUMBER_OF_REVIEW,LOVE))
+```
+
+
+
+
+PRICE Analysis {data-orientation=rows}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+### Predict PRICE
+For this analysis we will use a Linear Regression Model.
+
+```{r, include=FALSE, cache=TRUE}
+lm <- lm(PRICE ~ . -CAT.PRICE, data = df)
+summary(lm)
+```
+
+```{r,include=FALSE, cache=TRUE}
+tidy(lm)
+```
+
+### Adjusted R-Squared
+
+```{r, cache=TRUE}
+ARSq<-round(summary(lm)$adj.r.squared,2)
+valueBox(paste(ARSq*100,'%'), icon = "fa-thumbs-up")
+```
+
+### RMSE
+
+```{r, cache=TRUE}
+Sig<-round(summary(lm)$sigma,2)
+valueBox(Sig, icon = "fa-thumbs-up")
+```
+
+
+
+
+
+Row
+-----------------------------------------------------------------------
+
+### Regression Output
+
+```{r,include=FALSE, cache=TRUE}
+summary(lm)$coef
+```
+
+```{r, cache=TRUE}
+idx <- order(coef(summary(lm))[,4])  
+out <- coef(summary(lm))[idx,] 
+knitr::kable(out, digits = 3) 
+```
+
+### Residual Assumptions Explorations
+
+```{r, cache=TRUE}
+plot(lm, which=c(1,2)) 
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Analysis Summary
+After reviewing the regression model, we have identified several predictors that do not significantly impact the prediction of PRICE. Therefore, we will proceed by refining the model to exclude these non-significant predictors.
+
+
+Row
+-----------------------------------------------------------------------
+
+### Predict PRICE Final Version
+For this analysis, we will make the finalized version of the Linear Regression Model. We have excluded LOVE, NUMBER_OF_REVIEW, and LIMITED_TIMES_OFFER1 from the model.
+
+```{r, include=FALSE, cache=TRUE}
+new_lm <- lm(PRICE ~ . -CAT.PRICE -LOVE - NUMBER_OF_REVIEW - LIMITED_TIMES_OFFER, data = df)
+summary(new_lm)
+```
+
+```{r, include=FALSE, cache=TRUE}
+tidy(new_lm)
+```
+
+### Adjusted R-Squared
+
+```{r, cache=TRUE}
+ARSq<-round(summary(new_lm)$adj.r.squared,2)
+valueBox(paste(ARSq*100,'%'), icon = "fa-thumbs-up")
+```
+
+### RMSE
+
+```{r, cache=TRUE}
+Sig<-round(summary(new_lm)$sigma,2)
+valueBox(Sig, icon = "fa-thumbs-up")
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Regression Output
+
+```{r, include=FALSE, cache=TRUE}
+knitr::kable(summary(new_lm)$coef, digits = 3) 
+```
+
+```{r, cache=TRUE}
+idx <- order(coef(summary(new_lm))[,4])  
+out <- coef(summary(new_lm))[idx,] 
+knitr::kable(out, digits = 3)
+```
+
+### Residual Assumptions Explorations
+
+```{r, cache=TRUE}
+plot(new_lm, which=c(1,2))
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Analysis Summary
+
+After analyzing the new finalize model, we can see that there is a concern with our data. In the Residuals vs. Fitted Plot, we can see a clear pattern in this plot that looks like a curve suggests non-linearity which indicate that the relationship between predictor and the PRICE is not linear. Futhermore, in the Q-Q plot,there is curved pattern that is not lie on the straigt line. This indicates that there is non-normality in the residual that can impact the validity hypothesis tests and those outlier could also impact the model. Therefore, we could improve by managing the outlier that might impact the distribution of residual.
+
+
+
+
+From the following table, we can see the effect on Median Value by the predictor variables.
+
+```{r, cache=TRUE}
+
+predchang = data_frame(
+  Variable = c('SIZE1', 'RATING','VALUE_PRICE','ONLINE_ONLY','EXCLUSIVE','LIMITED_EDITION'),
+  Direction = c('Increase','Increase','Increase','Decrease', 'Decrease','Decrease'))
+knitr::kable(predchang)
+
+```
+
+
+CAT.PRICE Analysis {data-orientation=rows}
+=======================================================================
+
+
+Column {data-width=250}
+-----------------------------------------------------------------------
+### Predict CAT.PRICE
+This nominal logistic model was created all the predictors to determine whether CAT.PRICE is above or below 0.5.The predictors EXCLUSIVE, LIMITED_EDITION, and VALUE_PRICE—all had p-values below the alpha level of 0.1. The model graph indicates that all variables have p-values less than 0.05.
+
+The Training Error Rate is (38+58) / (2520+38+58+1049) = 0.026 = 2.6%
+
+The Training Sensitivity = 1049/1049+58=0.947 = 94.7%
+
+The Validation Error Rate is (28+31)/(1638+28+31+701) = 0.024 = 2.4%
+
+The Validation Sensitivity = 701/701+31= 0.957 = 95.7%
+
+Both training and validation error rate have a low error rate which indicates that the model will perform well with a few mistakes as well as the sensitivity for both training and validation, they have the highest sensitivity rate that indicates the great performance of the model.
+
+
+
+Column {data-width=250}
+-----------------------------------------------------------------------
+
+![](CAT.PRICE Analysis.png)
+
+
+Conclusion
+=======================================================================
+Row {data-height=900}
+-----------------------------------------------------------------------
+
+### Summary
+In conclusion, our analysis of Sephora website shows a negative correlation between price and consumer affection, suggesting higher-priced items attract less love, highlighting Sephora's price-sensitive customer base. And the regression model with 97% of adjusted R-squared shows that the effective of predictors in price determination. Nominal logistic regression also shows that whereas features can increase pricing, they do not always turn into more customer love.
